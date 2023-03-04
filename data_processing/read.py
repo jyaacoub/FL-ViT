@@ -3,8 +3,8 @@ This file is for reading the data from the data folder
 
 Data from: https://www.cs.toronto.edu/~kriz/cifar.html
 """
-
 import pickle
+from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,31 +14,39 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='bytes')
     return dict
 
-def display_sample(sample: np.ndarray):
+def get_data(file:str) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Each row of the array stores a 32x32 colour image. 
-        The first 1024 entries contain the red channel values, 
-        the next 1024 the green, and 
-        the final 1024 the blue. 
-    
-    The image is stored in row-major order, so that the 
-    first 32 entries of the array are the red channel 
-    values of the first row of the image.
+    This function reads the batch data from the file and returns 
+    the images and labels.
 
     Args:
-        sample (np.ndarray): (3072,) array of the sample
+        file (str): path to the batch file
+    
+    returns:
+        images (np.ndarray): (n_samples, 32, 32, 3)
+        labels (np.ndarray): (n_samples,)
     """
-    img = sample.reshape((3,32,32)).transpose((1,2,0))
-    plt.imshow(img)
-    plt.show()
-
+    d = unpickle(file)
+    imgs = d[b'data'] # (n_samples, 3072)
+    labels = d[b'labels'] # (n_samples,)
+    
+    n = imgs.shape[0]
+    
+    imgs = imgs.reshape((n, 3, 32, 32))
+    imgs = imgs.transpose((0, 2, 3, 1)) # (n, 32, 32, 3)
+    
+    return imgs, labels
 
 if __name__ == "__main__":
-    d = unpickle('../data/cifar-10-batches-py/batches.meta')
-    d1 = unpickle('../data/cifar-10-batches-py/data_batch_1')
+    meta = unpickle('../data/cifar-10-batches-py/batches.meta')
+    batch = unpickle('../data/cifar-10-batches-py/data_batch_1')
 
-    data = lambda i: d1[b'data'][i]
-    label = lambda i: d[b'label_names'][d1[b'labels'][i]]
+    data = lambda i: batch[b'data'][i]
+    label = lambda i: meta[b'label_names'][batch[b'labels'][i]]
 
-    display_sample(data(1))
-    print(label(0))
+    sample_i = 4
+    img = data(sample_i).reshape((3,32,32)).transpose((1,2,0))
+    plt.imshow(img)
+    plt.title(label(sample_i))
+    plt.show()
+
