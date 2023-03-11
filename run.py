@@ -1,1 +1,1 @@
-from model import model
+import model
