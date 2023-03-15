@@ -1,5 +1,12 @@
 """
 This file carries the model blocks for the transformer model.
+
+Target transformer is Vit-B/16:
+    patch_size=16,
+    num_layers=12,
+    num_heads=12,
+    hidden_dim=768,
+    mlp_dim=3072,
 """
 
 import torch 
@@ -36,11 +43,12 @@ class Head(nn.Module):
   
 class MultiHeadAttention(nn.Module):
   """ Multiple Heads of self-attention in parallel """
-  def __init__(self, num_heads, head_size, embd_dim, dropout=0.1):
+  def __init__(self, hidden_dim=768, num_heads=12, dropout=0.1):
     super().__init__()
-    self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+    head_size = hidden_dim // num_heads
+    self.heads = nn.ModuleList([Head(hidden_dim, head_size) for _ in range(num_heads)])
     # combine heads by projecting to embedding dimension 
-    self.proj = nn.Linear(num_heads * head_size, embd_dim)
+    self.proj = nn.Linear(num_heads * head_size, hidden_dim)
     self.dropout = nn.Dropout(dropout)
     
   def forward(self, x):
@@ -67,17 +75,18 @@ class MlpBlock(nn.Module):
 
 class EncoderBlock(nn.Module):
   """Single ViT encoder block"""
-  def __init__(self, n_embd, n_head, dropout=0.1) -> None:
+  def __init__(self, n_head=12, hidden_dim=768, mlp_dim=3072, 
+               dropout=0.1, attn_dropout=0.1) -> None:
     super().__init__()
-    head_size = n_embd // n_head
-    self.ln1 = nn.LayerNorm(n_embd, eps=1e-6) #eps is a small value added to the denominator to improve numerical stability
+    head_size = hidden_dim // n_head
+    self.ln1 = nn.LayerNorm(hidden_dim, eps=1e-6) # eps is for numerical stability
     
-    self.sa = MultiHeadAttention(n_head, head_size)
-    self.ln2 = nn.LayerNorm(n_embd, eps=1e-6)
-    
-    self.mlp = MlpBlock(n_embd, dropout=dropout)
-    
+    self.sa = MultiHeadAttention(n_head, head_size, attn_dropout) # TODO: might be better to use nn.MultiheadAttention for speedups?
     self.dropout = nn.Dropout(dropout)
+    
+    self.ln2 = nn.LayerNorm(hidden_dim, eps=1e-6)
+    self.mlp = MlpBlock(hidden_dim, mlp_dim, dropout=dropout)
+    
     
   def forward(self, inputs):
     # layer norm done BEFORE the transformation (prenorm formulation)
@@ -87,5 +96,63 @@ class EncoderBlock(nn.Module):
     x = x + inputs # residual connection
     
     # mlp block
-    x = self.mlp(self.ln2(x)) + x
-    return x
+    y = self.ln2(x)
+    y = self.mlp(y)
+    return x + y # residual connection
+
+class Encoder(nn.Module):
+  """Encoder for the Vision Transformer"""
+  def __init__(self, seq_len, n_layers, n_head=12, hidden_dim=768, mlp_dim=3072, 
+               dropout=0.1, attn_dropout=0.1) -> None:
+    super().__init__()
+    
+    # Learnable positional embedding instead of 
+    # fixed positional encoding of the original Attention is all you need paper
+    self.pos_embedding = nn.Parameter(torch.empty(1, seq_len, hidden_dim).normal_(std=0.02))
+    
+    self.dropout = nn.Dropout(dropout)
+    self.encoders = nn.Sequential(
+      *[EncoderBlock(n_head, hidden_dim, mlp_dim, dropout, attn_dropout) for _ in range(n_layers)])
+    self.ln = nn.LayerNorm(hidden_dim, eps=1e-6)
+  
+  def forward(self, x):
+    x = x + self.pos_embedding
+    x = self.dropout(x)
+    return self.ln(self.encoders(x))
+
+class VisionTransformer(nn.Module):
+  """
+  Vision Transformer from https://arxiv.org/abs/2010.11929:
+  
+  Default values are according to ViT-B/16.
+  """
+  def __init__(self, image_size=224, 
+               patch_size=16,
+               num_encoder_layers=12,
+               hidden_dim=768,
+               mlp_dim=3072, # 768*4 = 3072
+               num_heads=12,
+               dropout=0.1,
+               attn_dropout=0.1) -> None:
+    super().__init__()
+    self.img_size = image_size
+    self.patch_size = patch_size
+    
+    self.num_encoder_layers = num_encoder_layers
+    
+    self.hidden_dim = hidden_dim
+    self.mlp_dim = mlp_dim
+    
+    self.num_heads = num_heads
+    
+    seq_len = (image_size // patch_size) ** 2 # 224/16 = 14 --> 14*14 = 196
+    self.class_token = nn.Parameter(torch.zeros(1, 1, hidden_dim))
+    seq_len += 1 # add class token
+    
+    self.encoder = Encoder(seq_len, num_encoder_layers, 
+                           num_heads, hidden_dim, 
+                           mlp_dim, dropout, attn_dropout)
+    
+    # TODO: add classification head
+    
+    
