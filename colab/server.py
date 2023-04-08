@@ -2,7 +2,8 @@
 from typing import Dict
 import flwr as fl
 import multiprocessing as mp
-from flower_helpers import create_model, FedAvgMp, get_weights, test, load_data, evaluate
+from flower_helpers import (create_model, FedAvgMp, 
+                            get_weights, test, load_data)
 from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES, 
                     PRE_TRAINED, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
@@ -13,27 +14,28 @@ from client import FlowerClient
 
 
 #%% Set the start method for multiprocessing in case Python version is under 3.8.1
-mp.set_start_method("spawn")
+# mp.set_start_method("spawn")
 
 #%% Load the data
 trainloaders, valloaders, testloader = load_data()
 
-# server side evaluation function
-def evaluate(server_round: int, params: fl.common.NDArrays,
-             config: Dict[str, fl.common.Scalar]):
-    loss, accuracy, data_size = test(params, testloader)
-    print(f"\tServer-side evaluation loss {loss} / accuracy {accuracy}")
-    return loss, {"accuracySE": accuracy}
-
 #%% Create a new fresh model to initialize parameters
 net = create_model()
 init_weights = get_weights(net)
+MODEL_CONFIG = net.config
 # Convert the weights (np.ndarray) to parameters (bytes)
 init_param = fl.common.ndarrays_to_parameters(init_weights)
 # del the net as we don't need it anymore
 del net
 
 #%% Define the strategy
+# server side evaluation function
+def evaluate(server_round: int, params: fl.common.NDArrays,
+             config: Dict[str, fl.common.Scalar]):
+    loss, accuracy, data_size = test(MODEL_CONFIG, params, testloader)
+    print(f"\tServer-side evaluation loss {loss} / accuracy {accuracy}")
+    return loss, {"accuracySE": accuracy}
+
 strategy = FedAvgMp(
     fraction_fit=FRAC_FIT,
     fraction_evaluate=FRAC_EVAL,
@@ -49,9 +51,10 @@ strategy = FedAvgMp(
 
 #%% Start simulation
 fl.simulation.start_simulation(
-    client_fn=lambda cid: FlowerClient(trainloaders[int(cid)], valloaders[int(cid)]),
+    client_fn=lambda cid: FlowerClient(MODEL_CONFIG, trainloaders[int(cid)], valloaders[int(cid)]),
     num_clients=NUM_CLIENTS,
     config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
     strategy=strategy,
     client_resources=CLIENT_RESOURCES,
 )
+# %%

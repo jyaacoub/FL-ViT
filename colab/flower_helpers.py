@@ -14,17 +14,10 @@ from torch.utils.data import DataLoader, random_split
 from config import (HF_MODELS, DEVICE, MODEL_NAME, NUM_CLASSES, 
                     PRE_TRAINED, NUM_CLIENTS, TRAIN_SIZE, 
                     VAL_PORTION, TEST_SIZE, BATCH_SIZE, 
-                    LEARNING_RATE, EPOCHS)
+                    LEARNING_RATE)
 
 
-# Preprocess function
-def preprocess_data(data):
-    processor = AutoProcessor.from_pretrained(MODEL_NAME)
-    inputs = processor(images=data['img'], return_tensors="pt")
-    return {"inputs": inputs['pixel_values'].squeeze(), 
-            "labels":torch.tensor(data['label'])}
-
-def load_data(raw_dataset):
+def load_data():
     """returns trainloaders, valloaders for each client and a single testloader"""
     raw_dataset = load_dataset('cifar10')
     raw_dataset = raw_dataset.shuffle(seed=42)
@@ -35,6 +28,13 @@ def load_data(raw_dataset):
 
     test_data = raw_dataset['test'].select(test_idxs)
     train_data = raw_dataset['train'].select(train_idxs)
+    
+    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    # Preprocess function
+    def preprocess_data(data):
+        inputs = processor(images=data['img'], return_tensors="pt")
+        return {"inputs": inputs['pixel_values'].squeeze(), 
+                "labels":torch.tensor(data['label'])}
 
     # preprocessing:
     train_data = train_data.map(preprocess_data, batched=True, 
@@ -70,7 +70,7 @@ def load_data(raw_dataset):
                                  batch_size=BATCH_SIZE, shuffle=True)
     return trainloaders, valloaders, testloader
     
-def create_model():
+def create_model() -> nn.Module:
     # Load the pre-trained model
     model = AutoModelForImageClassification.from_pretrained(MODEL_NAME)
     # Replace the classification head
@@ -94,7 +94,7 @@ def create_model():
     # Config is used to init the classes and we use pretrained for initial weights
     model.config.num_labels = NUM_CLASSES
     
-    # randomize weights if not pretrained
+    # randomize weights if we dont want pretrained
     if not PRE_TRAINED:
         model = AutoModelForImageClassification.from_config(model.config)
     return model
@@ -107,53 +107,57 @@ def set_weights(model, weights) -> None:
     state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
     model.load_state_dict(state_dict, strict=True)
     
-def train(epochs, parameters, return_dict):
-    """Train the network on the training set."""
-    # Create model
-    net = Net().to(DEVICE)
-    # Load weights
-    if parameters is not None:
-        set_weights(net, parameters)
-    # Load data (CIFAR-10)
-    trainloader = load_data(train=True)
+def train(model_config, epochs, params, trainloader):
+    # Load model
+    net = AutoModelForImageClassification.from_config(model_config).to(DEVICE)
+    if params is not None:
+      set_weights(net, params)
+
+    optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    net.train() # switches network into training mode
+
     for _ in range(epochs):
-        for images, labels in trainloader:
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
-            optimizer.zero_grad()
-            loss = criterion(net(images), labels)
+        for data in trainloader:
+            x, y = data['inputs'], data['labels']
+            x, y = x.to(DEVICE), y.to(DEVICE)
+          
+            #forward
+            outputs = net(x)
+            
+            #back
+            loss = criterion(outputs.logits, y)
             loss.backward()
             optimizer.step()
-    # Prepare return values
-    return_dict["parameters"] = get_weights(net)
-    return_dict["data_size"] = len(trainloader)
+            optimizer.zero_grad() # resets grads for next iteration
+
+    
+    return get_weights(net), len(trainloader)
 
 
-def test(parameters, return_dict):
-    """Validate the network on the entire test set."""
-    # Create model
-    net = Net().to(DEVICE)
-    # Load weights
-    if parameters is not None:
-        set_weights(net, parameters)
-    # Load data (CIFAR-10)
-    testloader = load_data(train=False)
+def test(model_config, params, dataloader):
+    # Load model
+    net = AutoModelForImageClassification.from_config(model_config).to(DEVICE)
+    if params is not None:
+      set_weights(net, params)
+
     criterion = torch.nn.CrossEntropyLoss()
-    correct, total, loss = 0, 0, 0.0
-    with torch.no_grad():
-        for data in testloader:
-            images, labels = data[0].to(DEVICE), data[1].to(DEVICE)
-            outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    accuracy = correct / total
-    # Prepare return values
-    return_dict["loss"] = loss
-    return_dict["accuracy"] = accuracy
-    return_dict["data_size"] = len(testloader)
+    total, correct, loss = 0, 0, 0.0
+    net.eval() # switching network into eval mode
+    for data in dataloader:
+        x, y = data['inputs'], data['labels']
+        x, y = x.to(DEVICE), y.to(DEVICE)
+      
+        #forward
+        with torch.no_grad():
+            outputs = net(x)
+        predictions = torch.argmax(outputs.logits, dim=-1)
+
+        loss += criterion(outputs.logits, y)
+        total += y.size(0)
+        correct += (predictions==y).sum().item()
+
+    return loss, correct / total, len(dataloader)
 
 class FedAvgMp(FedAvg):
     """This class implements the FedAvg strategy for Multiprocessing context."""
