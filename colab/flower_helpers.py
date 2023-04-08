@@ -1,43 +1,104 @@
 from collections import OrderedDict
-from flwr.server.strategy import FedAvg
+import random
+from typing import Dict
 import flwr as fl
+from flwr.server.strategy import FedAvg
+
+from transformers import AutoModelForImageClassification, AutoProcessor
+from datasets import load_dataset
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from torchvision.datasets import CIFAR10
+from torch.utils.data import DataLoader, random_split
 
-DEVICE: str = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+from config import (HF_MODELS, DEVICE, MODEL_NAME, NUM_CLASSES, 
+                    PRE_TRAINED, NUM_CLIENTS, TRAIN_SIZE, 
+                    VAL_PORTION, TEST_SIZE, BATCH_SIZE, 
+                    LEARNING_RATE, EPOCHS)
 
-def load_data(train=True):
-    """Load CIFAR-10 (training and test set)."""
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    dataset = CIFAR10("./dataset", train=train, download=True, transform=transform)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-    return dataloader
 
-class Net(nn.Module):
-    def __init__(self) -> None:
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+# Preprocess function
+def preprocess_data(data):
+    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    inputs = processor(images=data['img'], return_tensors="pt")
+    return {"inputs": inputs['pixel_values'].squeeze(), 
+            "labels":torch.tensor(data['label'])}
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+def load_data(raw_dataset):
+    """returns trainloaders, valloaders for each client and a single testloader"""
+    raw_dataset = load_dataset('cifar10')
+    raw_dataset = raw_dataset.shuffle(seed=42)
     
+    # limiting data size
+    test_idxs = random.sample(range(len(raw_dataset['test'])), TEST_SIZE)
+    train_idxs = random.sample(range(len(raw_dataset['train'])), TRAIN_SIZE)
+
+    test_data = raw_dataset['test'].select(test_idxs)
+    train_data = raw_dataset['train'].select(train_idxs)
+
+    # preprocessing:
+    train_data = train_data.map(preprocess_data, batched=True, 
+                                remove_columns=train_data.column_names) 
+    test_data = test_data.map(preprocess_data, batched=True, 
+                              remove_columns=test_data.column_names)
+    
+    # creating DataLoader
+    train_data.set_format('torch')
+    test_data.set_format('torch')
+
+    # SPLITTING:
+    # Split training set into partitions to simulate the individual dataset
+    partition_size = len(train_data) // NUM_CLIENTS
+    lengths = [partition_size] * NUM_CLIENTS
+    datasets = random_split(train_data, lengths, torch.Generator().manual_seed(42))
+
+    trainloaders = []
+    valloaders = []
+    for ds in datasets:
+      len_val = int(len(ds) * VAL_PORTION)
+      len_train = len(ds) - len_val
+      lengths = [len_train, len_val]
+      ds_train, ds_val = random_split(ds, lengths, torch.Generator().manual_seed(42))
+
+
+      trainloaders.append(DataLoader(ds_train, 
+                                    batch_size=BATCH_SIZE, shuffle=True))
+      valloaders.append(DataLoader(ds_val, 
+                                    batch_size=BATCH_SIZE, shuffle=True))
+      
+    testloader = DataLoader(test_data, 
+                                 batch_size=BATCH_SIZE, shuffle=True)
+    return trainloaders, valloaders, testloader
+    
+def create_model():
+    # Load the pre-trained model
+    model = AutoModelForImageClassification.from_pretrained(MODEL_NAME)
+    # Replace the classification head
+    if MODEL_NAME == HF_MODELS['BiT']:
+        model.classifier = nn.Sequential(
+                        nn.Flatten(start_dim=1, end_dim=-1),
+                        nn.Linear(in_features=2048, out_features=NUM_CLASSES, bias=True)
+                    )
+    elif MODEL_NAME == HF_MODELS['ConvNeXt']: # ConvNext 
+        model.classifier = nn.Linear(768, NUM_CLASSES)
+    elif MODEL_NAME == HF_MODELS['ViT']: #Vit
+        model.classifier = nn.Linear(
+            model.config.hidden_size,
+            NUM_CLASSES)
+    elif MODEL_NAME == HF_MODELS['DeiT']: #DeiT
+        model.cls_classifier = nn.Linear(768, NUM_CLASSES)
+        model.distillation_classifier = nn.Linear(768, NUM_CLASSES)
+    else:
+        raise Exception
+    
+    # Config is used to init the classes and we use pretrained for initial weights
+    model.config.num_labels = NUM_CLASSES
+    
+    # randomize weights if not pretrained
+    if not PRE_TRAINED:
+        model = AutoModelForImageClassification.from_config(model.config)
+    return model
+ 
 def get_weights(model):
     return [val.cpu().numpy() for _, val in model.state_dict().items()]
     
@@ -45,7 +106,6 @@ def set_weights(model, weights) -> None:
     params_dict = zip(model.state_dict().keys(), weights)
     state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
     model.load_state_dict(state_dict, strict=True)
-    
     
 def train(epochs, parameters, return_dict):
     """Train the network on the training set."""
@@ -94,7 +154,7 @@ def test(parameters, return_dict):
     return_dict["loss"] = loss
     return_dict["accuracy"] = accuracy
     return_dict["data_size"] = len(testloader)
-    
+
 class FedAvgMp(FedAvg):
     """This class implements the FedAvg strategy for Multiprocessing context."""
 
