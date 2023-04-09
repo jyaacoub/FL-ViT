@@ -2,7 +2,6 @@ from collections import OrderedDict
 import random
 from typing import Dict
 import flwr as fl
-from flwr.server.strategy import FedAvg
 
 from transformers import AutoModelForImageClassification, AutoProcessor
 from datasets import load_dataset
@@ -115,9 +114,11 @@ def train(model_config, epochs, params, trainloader):
 
     optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
     criterion = torch.nn.CrossEntropyLoss()
+    metrics = {'train_loss': [], 'train_accuracy': []}
     net.train() # switches network into training mode
-
-    for _ in range(epochs):
+    for i in range(epochs):
+        total, correct = 0, 0
+        total_loss = 0
         for data in trainloader:
             x, y = data['inputs'], data['labels']
             x, y = x.to(DEVICE), y.to(DEVICE)
@@ -130,9 +131,16 @@ def train(model_config, epochs, params, trainloader):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad() # resets grads for next iteration
-
+            
+            with torch.no_grad():
+                total_loss += loss
+                total += y.size(0)
+                correct += (torch.argmax(outputs.logits, dim=-1)==y).sum().item()
+                
+        metrics['train_accuracy'].append(correct/total)
+        metrics['train_loss'].append(loss.item())
     
-    return get_weights(net), len(trainloader)
+    return get_weights(net), len(trainloader), metrics
 
 
 def test(model_config, params, dataloader):
@@ -157,14 +165,5 @@ def test(model_config, params, dataloader):
         total += y.size(0)
         correct += (predictions==y).sum().item()
 
-    return loss, correct / total, len(dataloader)
-
-class FedAvgMp(FedAvg):
-    """This class implements the FedAvg strategy for Multiprocessing context."""
-
-    def configure_evaluate(self, server_round: int, 
-                           parameters: fl.common.Parameters, 
-                           client_manager: fl.server.client_manager.ClientManager):
-        """Configure the next round of evaluation. Returns None since evaluation is made server side.
-        You could comment this method if you want to keep the same behaviour as FedAvg."""
-        return None
+    metrics = {'loss': loss.item(), 'accuracy': correct/total}
+    return len(dataloader), metrics

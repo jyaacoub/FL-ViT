@@ -15,20 +15,20 @@ NUM_CLASSES = 10 #10 or 100 for CIFAR10 or CIFAR100 respectively
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #
-TRAIN_SIZE = 100
+TRAIN_SIZE = 1000
 VAL_PORTION = 0.1 # 10% of the training set is for validation
-TEST_SIZE = 50
+TEST_SIZE = 100
 
 BATCH_SIZE = 32
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
-NUM_CLIENTS = 2
+NUM_CLIENTS = 5
 NUM_ROUNDS = 10
 
-FRAC_FIT = 1.0    # Sample X% of available clients for training
-FRAC_EVAL = 1.0   # Sample X% of available clients for evaluation
+FRAC_FIT = 0.5    # Sample X% of available clients for training
+FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation
 MIN_FIT = 0       # Never sample less than this for training
 MIN_EVAL = 0      # Never sample less than this for evaluation
 MIN_AVAIL = 0     # Wait until all these # of clients are available

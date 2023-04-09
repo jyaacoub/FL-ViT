@@ -2,8 +2,7 @@
 from typing import Dict
 import flwr as fl
 import multiprocessing as mp
-from flower_helpers import (create_model, FedAvgMp, 
-                            get_weights, test, load_data)
+from flower_helpers import (create_model, get_weights, test, load_data)
 from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES, 
                     PRE_TRAINED, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
@@ -28,25 +27,57 @@ init_param = fl.common.ndarrays_to_parameters(init_weights)
 # del the net as we don't need it anymore
 del net
 
-#%% Define the strategy
+#%% metrics
 # server side evaluation function
 def evaluate(server_round: int, params: fl.common.NDArrays,
              config: Dict[str, fl.common.Scalar]):
-    loss, accuracy, data_size = test(MODEL_CONFIG, params, testloader)
-    print(f"\tServer-side evaluation loss {loss} / accuracy {accuracy}")
-    return loss, {"accuracySE": accuracy}
+    data_size, metrics = test(MODEL_CONFIG, params, testloader)
+    # changing the name of the metric to avoid confusion
+    metrics['test_loss'] = metrics.pop('loss')
+    metrics['test_accuracy'] = metrics.pop('accuracy')
+    return metrics['test_loss'], metrics
 
-strategy = FedAvgMp(
+def weighted_average_eval(metrics):
+    weighted_train_loss = 0
+    weighted_train_accuracy = 0
+    for c in metrics: # c is a tuple (num_examples, metrics) for each client
+        weighted_train_loss += c[0] * c[1]['val_loss']
+        weighted_train_accuracy += c[0] * c[1]['val_accuracy']
+    
+    aggregated_metrics = {'val_loss': weighted_train_loss / sum([c[0] for c in metrics]),
+            'val_accuracy': weighted_train_accuracy / sum([c[0] for c in metrics])}
+    print('\t',aggregated_metrics)
+    return aggregated_metrics
+
+def weighted_average_fit(metrics):
+    # print(metrics)
+    weighted_train_loss = 0
+    weighted_train_accuracy = 0
+    for c in metrics: # c is a tuple (num_examples, metrics) for each client
+        # metrics for each epoch is included, we only need the last one
+        weighted_train_loss += c[0] * c[1]['train_loss'][-1]
+        weighted_train_accuracy += c[0] * c[1]['train_accuracy'][-1]
+    
+    aggregated_metrics = {'train_loss': weighted_train_loss / sum([c[0] for c in metrics]),
+            'train_accuracy': weighted_train_accuracy / sum([c[0] for c in metrics])}
+    print('\t',aggregated_metrics)
+    return aggregated_metrics
+    
+
+# %% Define the strategy
+strategy = fl.server.strategy.FedAvg(
     fraction_fit=FRAC_FIT,
     fraction_evaluate=FRAC_EVAL,
     min_fit_clients=MIN_FIT,
     min_evaluate_clients=MIN_EVAL,
     min_available_clients=MIN_AVAIL,
     
-    # evaluate_metrics_aggregation_fn= #TODO
-    initial_parameters=init_param,
+    fit_metrics_aggregation_fn=weighted_average_fit,
+    evaluate_metrics_aggregation_fn=weighted_average_eval,
     evaluate_fn=evaluate,
     on_fit_config_fn=FIT_CONFIG_FN,
+    
+    initial_parameters=init_param,
 )
 
 #%% Start simulation

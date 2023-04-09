@@ -17,15 +17,18 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        new_parameters, data_size = train(self.model_config, 
+        new_parameters, data_size, metrics = train(self.model_config, 
                                           config['local_epochs'], 
                                           parameters, 
                                           self.trainloader)
-        return new_parameters, data_size, {}
+        return new_parameters, data_size, metrics
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        loss, accuracy, data_size = test(self.model_config,
+        data_size, metrics = test(self.model_config,
                                         parameters, 
                                         self.valloader)
-        return float(loss), data_size, {"accuracy": float(accuracy)}
+        # changing the name of the metric to avoid confusion
+        metrics['val_accuracy'] = metrics.pop('accuracy')
+        metrics['val_loss'] = metrics.pop('loss')
+        return metrics['val_loss'], data_size, metrics
