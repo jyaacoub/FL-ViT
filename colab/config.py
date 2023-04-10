@@ -10,7 +10,7 @@ HF_MODELS = {
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['ViT']
+MODEL_NAME =  HF_MODELS['BiT']
 NUM_CLASSES = 10 #10 or 100 for CIFAR10 or CIFAR100 respectively
 PRE_TRAINED = True
 
