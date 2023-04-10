@@ -1,7 +1,7 @@
 #%% Import libraries
 from typing import Dict
 import flwr as fl
-import multiprocessing as mp
+import torch
 from flower_helpers import (create_model, get_weights, test, load_data)
 from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES, 
                     PRE_TRAINED, TRAIN_SIZE, VAL_PORTION, 
@@ -12,11 +12,14 @@ from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES,
 from client import FlowerClient
 
 
-#%% Set the start method for multiprocessing in case Python version is under 3.8.1
-# mp.set_start_method("spawn")
 
 #%% Load the data
-trainloaders, valloaders, testloader = load_data()
+data_path = lambda x: f'tff_dataloaders_5clients/{x}.pth'
+trainloaders = torch.load(data_path('trainloaders'))
+valloaders = torch.load(data_path('valloaders'))
+testloader = torch.load(data_path('testloader'))
+#%%
+# trainloaders, valloaders, testloader = load_data()
 
 #%% Create a new fresh model to initialize parameters
 net = create_model()

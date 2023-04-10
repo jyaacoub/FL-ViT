@@ -2,9 +2,16 @@ from collections import OrderedDict
 import random
 from typing import Dict
 import flwr as fl
+import tensorflow as tf
+# try:
+#     import tensorflow_federated as tff
+# except:
+#     print('tensorflow_federated not installed... Cannot load data from tff')
+    
+import numpy as np
 
 from transformers import AutoModelForImageClassification, AutoProcessor
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, DatasetDict
 
 import torch
 import torch.nn as nn
@@ -14,8 +21,54 @@ from config import (HF_MODELS, DEVICE, MODEL_NAME, NUM_CLASSES,
                     PRE_TRAINED, NUM_CLIENTS, TRAIN_SIZE, 
                     VAL_PORTION, TEST_SIZE, BATCH_SIZE, 
                     LEARNING_RATE)
+    
+def load_data_tff():
+    """same as load_data but returns heterogenous (non-iid) dataset from tensorflow-federated"""
+    cifar_train, cifar_test = tff.simulation.datasets.cifar100.load_data()
+    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    
+    def convert_tf_client_to_dict(client_data):
+        data_dict = {
+            "img": [],
+            "label": []
+        }
+        
+        for sample in client_data:
+            img = np.array(sample["image"])
+            label = np.array(sample["label"])
+            data_dict["img"].append(img)
+            data_dict["label"].append(label)
+            
+        return data_dict
 
-
+    def preprocess_data(batch):
+        images = [np.array(img) for img in batch["img"]]
+        inputs = processor(images=images, return_tensors="pt")
+        inputs['pixel_values'] = inputs['pixel_values'].squeeze()
+        return {"inputs": inputs['pixel_values'], "labels": batch["label"].squeeze()}
+    
+    trainloaders, valloaders = [], []
+    for n in range(NUM_CLIENTS):
+        client_train = cifar_train.create_tf_dataset_for_client(cifar_train.client_ids[n])
+        
+        train_dict = convert_tf_client_to_dict(client_train)
+        train_data = Dataset.from_dict(train_dict)
+        train_data = train_data.map(preprocess_data, batched=True,
+                                    remove_columns=train_data.column_names)
+        train_data.set_format('torch')
+        
+        train_val_split = train_data.train_test_split(test_size=VAL_PORTION)
+        trainloaders.append(DataLoader(train_val_split["train"], batch_size=BATCH_SIZE))
+        valloaders.append(DataLoader(train_val_split["test"], batch_size=BATCH_SIZE))
+    
+    client_test = cifar_test.create_tf_dataset_for_client(cifar_test.client_ids[0])
+    test_data = Dataset.from_dict(convert_tf_client_to_dict(client_test))
+    test_data = test_data.map(preprocess_data, batched=True,
+                                remove_columns=test_data.column_names)
+    test_data.set_format('torch')
+    
+    return trainloaders, valloaders, DataLoader(test_data, batch_size=BATCH_SIZE)
+    
 def load_data():
     """returns trainloaders, valloaders for each client and a single testloader"""
     raw_dataset = load_dataset('cifar10')
@@ -60,13 +113,10 @@ def load_data():
       ds_train, ds_val = random_split(ds, lengths, torch.Generator().manual_seed(42))
 
 
-      trainloaders.append(DataLoader(ds_train, 
-                                    batch_size=BATCH_SIZE, shuffle=True))
-      valloaders.append(DataLoader(ds_val, 
-                                    batch_size=BATCH_SIZE, shuffle=True))
+      trainloaders.append(DataLoader(ds_train, batch_size=BATCH_SIZE))
+      valloaders.append(DataLoader(ds_val, batch_size=BATCH_SIZE))
       
-    testloader = DataLoader(test_data, 
-                                 batch_size=BATCH_SIZE, shuffle=True)
+    testloader = DataLoader(test_data, batch_size=BATCH_SIZE)
     return trainloaders, valloaders, testloader
     
 def create_model() -> nn.Module:
@@ -141,7 +191,6 @@ def train(model_config, epochs, params, trainloader):
         metrics['train_loss'].append(loss.item())
     
     return get_weights(net), len(trainloader), metrics
-
 
 def test(model_config, params, dataloader):
     # Load model

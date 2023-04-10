@@ -10,8 +10,8 @@ HF_MODELS = {
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['BiT']
-NUM_CLASSES = 10 #10 or 100 for CIFAR10 or CIFAR100 respectively
+MODEL_NAME =  HF_MODELS['ViT']
+NUM_CLASSES = 100 #10 or 100 for CIFAR10 or CIFAR100 respectively
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #
@@ -24,8 +24,8 @@ LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
-NUM_CLIENTS = 5
-NUM_ROUNDS = 10
+NUM_CLIENTS = 10
+NUM_ROUNDS = 50
 
 FRAC_FIT = 0.5    # Sample X% of available clients for training
 FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation
