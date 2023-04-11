@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 dataset/*
+FLvit/
+colab/tff_dataloaders_5clients/testloader.pth
+colab/tff_dataloaders_5clients/trainloaders.pth
+colab/tff_dataloaders_5clients/valloaders.pth

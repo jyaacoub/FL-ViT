@@ -14,7 +14,7 @@ from client import FlowerClient
 
 
 #%% Load the data
-data_path = lambda x: f'tff_dataloaders_5clients/{x}.pth'
+data_path = lambda x: f'tff_dataloaders_10clients/{x}.pth'
 trainloaders = torch.load(data_path('trainloaders'))
 valloaders = torch.load(data_path('valloaders'))
 testloader = torch.load(data_path('testloader'))

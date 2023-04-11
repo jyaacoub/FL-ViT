@@ -1,6 +1,7 @@
 import torch
 # ------------ Model config --------------------- #
-DEVICE: str = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE: str = torch.device("cpu")
+print("Device:", DEVICE, DEVICE.type)
 # Hugging face models:
 HF_MODELS = {
     "ViT": "google/vit-base-patch16-224",
@@ -20,12 +21,12 @@ VAL_PORTION = 0.1 # 10% of the training set is for validation
 TEST_SIZE = 100
 
 BATCH_SIZE = 32
-LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
+LEARNING_RATE = 0.001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
 NUM_CLIENTS = 10
-NUM_ROUNDS = 50
+NUM_ROUNDS = 10
 
 FRAC_FIT = 0.5    # Sample X% of available clients for training
 FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation

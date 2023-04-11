@@ -59,7 +59,7 @@ def plot_all_models(metrics_path, key='accuracy',
     lr = re.findall(r"e-([0-9]*)LR", metrics_path)[0]
     plt.xlabel('Round')
     plt.ylabel(KEY.capitalize())
-    plt.title(f'CIFAR-10 Accuracy with Federated Learning (1e-{lr}LR)')
+    plt.title(f'CIFAR-10 {KEY.capitalize()} with Federated Learning (1e-{lr}LR)')
     x = [i for i in range(1, 11)]
     plt.xticks(x)
     plt.legend()
@@ -89,8 +89,8 @@ def plot_all_models(metrics_path, key='accuracy',
         i+=1
 
 # %%
-METRICS_PATH = lambda x: f'colab/media/non-hetero/32BS_e-{x}LR_1000Train_100Test/'
-KEY = 'loss'
+METRICS_PATH = lambda x: f'media/non-hetero/32BS_e-{x}LR_1000Train_100Test/'
+KEY = 'accuracy'
 
 plt.figure(figsize=(10, 5))
 plot_all_models(METRICS_PATH(5), key=KEY)
@@ -100,3 +100,4 @@ plt.figure(figsize=(10, 5))
 plot_all_models(METRICS_PATH(4), key=KEY)
 plt.savefig(METRICS_PATH(4)+KEY+'_all_models.png')
 plt.show()
+# %%
