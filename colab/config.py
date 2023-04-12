@@ -11,7 +11,7 @@ HF_MODELS = {
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['ViT']
+MODEL_NAME =  HF_MODELS['DeiT']
 NUM_CLASSES = 100 #10 or 100 for CIFAR10 or CIFAR100 respectively
 PRE_TRAINED = True
 
@@ -21,7 +21,7 @@ VAL_PORTION = 0.1 # 10% of the training set is for validation
 TEST_SIZE = 100
 
 BATCH_SIZE = 32
-LEARNING_RATE = 0.001 # 0.00001 for all others except ConVNeXt (0.0001)
+LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
