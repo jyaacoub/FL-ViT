@@ -2,23 +2,36 @@
 from typing import Dict
 import flwr as fl
 import torch
+from torch.utils.data import DataLoader, ConcatDataset, ChainDataset
+
 from flower_helpers import (create_model, get_weights, test, load_data)
 from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES, 
                     PRE_TRAINED, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
                     EPOCHS, FRAC_FIT, FRAC_EVAL, MIN_FIT,
                     MIN_EVAL, MIN_AVAIL, FIT_CONFIG_FN,
-                    NUM_CLIENTS, CLIENT_RESOURCES)
+                    NUM_CLIENTS, CLIENT_RESOURCES, DOUBLE_TRAIN,
+                    RAY_ARGS)
 from client import FlowerClient
 
 
 
-#%% Load the data
+#%% Load the data (non-iid dataset)
 data_path = lambda x: f'tff_dataloaders_10clients/{x}.pth'
 trainloaders = torch.load(data_path('trainloaders'))
 valloaders = torch.load(data_path('valloaders'))
 testloader = torch.load(data_path('testloader'))
 #%%
+if DOUBLE_TRAIN:
+    # combining loaders to double the size of the training set for each client
+    new_trainloaders = []
+    for i in range(0, len(trainloaders), 2):
+        combined = ConcatDataset([trainloaders[i].dataset, trainloaders[i+1].dataset])
+        new_trainloaders.append(DataLoader(combined, batch_size=BATCH_SIZE))
+    
+    trainloaders = new_trainloaders
+
+#%% Load the data (iid dataset from huggingface)
 # trainloaders, valloaders, testloader = load_data()
 
 #%% Create a new fresh model to initialize parameters
@@ -65,7 +78,6 @@ def weighted_average_fit(metrics):
             'train_accuracy': weighted_train_accuracy / sum([c[0] for c in metrics])}
     print('\t',aggregated_metrics)
     return aggregated_metrics
-    
 
 # %% Define the strategy
 strategy = fl.server.strategy.FedAvg(
@@ -83,6 +95,22 @@ strategy = fl.server.strategy.FedAvg(
     initial_parameters=init_param,
 )
 
+#%% printing some configs for sanity check
+print('num clients:', NUM_CLIENTS)
+print('num rounds:', NUM_ROUNDS)
+print('--'*20)
+print('client training set size:', [len(t.dataset) for t in trainloaders])
+print('client validation set size:', [len(v.dataset) for v in valloaders])
+print('test set size:', len(testloader.dataset))
+print('--'*20)
+print('model name:', MODEL_NAME)
+print('num classes:', NUM_CLASSES)
+print('pre-trained:', PRE_TRAINED)
+print('learning rate:', LEARNING_RATE)
+print('batch size:', BATCH_SIZE)
+print('epochs:', EPOCHS)
+        
+
 #%% Start simulation
 fl.simulation.start_simulation(
     client_fn=lambda cid: FlowerClient(MODEL_CONFIG, trainloaders[int(cid)], valloaders[int(cid)]),
@@ -90,5 +118,7 @@ fl.simulation.start_simulation(
     config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
     strategy=strategy,
     client_resources=CLIENT_RESOURCES,
+    ray_init_args=RAY_ARGS,
 )
 # %%
+ 

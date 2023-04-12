@@ -2,7 +2,7 @@ from collections import OrderedDict
 import random
 from typing import Dict
 import flwr as fl
-import tensorflow as tf
+#import tensorflow as tf
 # try:
 #     import tensorflow_federated as tff
 # except:
