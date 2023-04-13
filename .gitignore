@@ -2,5 +2,5 @@ __pycache__/
 *.pyc
 dataset/*
 FLvit/
-colab/tff_dataloaders_*clients/*
-colab/media/ray_spill/*
+data/*
+media/ray_spill/*

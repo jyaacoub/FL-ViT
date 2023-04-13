@@ -109,7 +109,7 @@ print('pre-trained:', PRE_TRAINED)
 print('learning rate:', LEARNING_RATE)
 print('batch size:', BATCH_SIZE)
 print('epochs:', EPOCHS)
-        
+
 
 #%% Start simulation
 fl.simulation.start_simulation(
