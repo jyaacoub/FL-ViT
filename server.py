@@ -2,22 +2,28 @@
 from typing import Dict
 import flwr as fl
 
-from flower_helpers import (create_model, get_weights, test, load_data)
+from flower_helpers import (create_model, get_weights, test, 
+                            load_data, load_stored_tff)
 from config import  (NUM_ROUNDS, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
                     EPOCHS, FRAC_FIT, FRAC_EVAL, MIN_FIT,
                     MIN_EVAL, MIN_AVAIL, FIT_CONFIG_FN,
-                    NUM_CLIENTS, CLIENT_RESOURCES, DOUBLE_TRAIN,
-                    RAY_ARGS, TFF_DATA_DIR, NUM_CLASSES, 
-                    MODEL_NAME, PRE_TRAINED)
+                    NUM_CLIENTS, CLIENT_RESOURCES, NON_IID,
+                    RAY_ARGS, NUM_CLASSES, TFF_DATA_DIR, 
+                    MODEL_NAME, PRE_TRAINED, DOUBLE_TRAIN)
 from client import FlowerClient
 
-#%% Load the data (non-iid dataset)
-
-#%% Load the data (iid dataset from huggingface)
-trainloaders, valloaders, testloader = load_data(MODEL_NAME, TEST_SIZE, 
-                                                 TRAIN_SIZE, VAL_PORTION, 
-                                                 BATCH_SIZE, NUM_CLIENTS)
+#%% Load the data 
+if NON_IID:
+    # non-iid dataset from tff (train and test are already split)
+    trainloaders, valloaders, testloader = load_stored_tff(TFF_DATA_DIR, 
+                                                           BATCH_SIZE,
+                                                           DOUBLE_TRAIN)
+else:
+    # iid dataset from huggingface
+    trainloaders, valloaders, testloader = load_data(MODEL_NAME, TEST_SIZE, 
+                                                    TRAIN_SIZE, VAL_PORTION, 
+                                                    BATCH_SIZE, NUM_CLIENTS)
 
 #%% Create a new fresh model to initialize parameters
 net = create_model(MODEL_NAME, NUM_CLASSES, PRE_TRAINED)
@@ -94,7 +100,6 @@ print('pre-trained:', PRE_TRAINED)
 print('learning rate:', LEARNING_RATE)
 print('batch size:', BATCH_SIZE)
 print('epochs:', EPOCHS)
-
 
 #%% Start simulation
 fl.simulation.start_simulation(

@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import random
-from typing import Dict
+from typing import Callable, Dict
 import flwr as fl
 try:
     # TF is only needed if we want to load data from tff
@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, random_split, ConcatDataset
 
 from config import (HF_MODELS, DEVICE)
 
-def load_stored_tff(data_path, batch_size, DOUBLE_TRAIN=False):
+def load_stored_tff(data_path:Callable[[int], str], batch_size: int, DOUBLE_TRAIN=False):
     trainloaders = torch.load(data_path('trainloaders'))
     valloaders = torch.load(data_path('valloaders'))
     testloader = torch.load(data_path('testloader'))
