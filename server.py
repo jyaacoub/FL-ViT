@@ -23,7 +23,8 @@ else:
     # iid dataset from huggingface
     trainloaders, valloaders, testloader = load_data(MODEL_NAME, TEST_SIZE, 
                                                     TRAIN_SIZE, VAL_PORTION, 
-                                                    BATCH_SIZE, NUM_CLIENTS)
+                                                    BATCH_SIZE, NUM_CLIENTS, 
+                                                    NUM_CLASSES)
 
 #%% Create a new fresh model to initialize parameters
 net = create_model(MODEL_NAME, NUM_CLASSES, PRE_TRAINED)

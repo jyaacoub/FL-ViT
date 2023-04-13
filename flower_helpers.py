@@ -85,9 +85,10 @@ def load_data_tff(model_name, val_portion, batch_size, num_clients):
     
     return trainloaders, valloaders, DataLoader(test_data, batch_size)
     
-def load_data(model_name, test_size, train_size, val_portion, batch_size, num_clients):
+def load_data(model_name, test_size, train_size, val_portion, batch_size, num_clients, num_classes=10):
     """returns trainloaders, valloaders for each client and a single testloader"""
-    raw_dataset = load_dataset('cifar10')
+    dataset = 'cifar10' if num_classes == 10 else 'cifar100'
+    raw_dataset = load_dataset(dataset)
     raw_dataset = raw_dataset.shuffle(seed=42)
     
     # limiting data size
@@ -100,9 +101,11 @@ def load_data(model_name, test_size, train_size, val_portion, batch_size, num_cl
     processor = AutoProcessor.from_pretrained(model_name)
     # Preprocess function
     def preprocess_data(data):
-        inputs = processor(images=data['img'], return_tensors="pt")
+        inputs = data['img']
+        labels = data['label'] if dataset=='cifar10' else data['fine_label']
+        inputs = processor(images=inputs, return_tensors="pt")
         return {"inputs": inputs['pixel_values'].squeeze(), 
-                "labels":torch.tensor(data['label'])}
+                "labels":torch.tensor(labels)}
 
     # preprocessing:
     train_data = train_data.map(preprocess_data, batched=True, 
