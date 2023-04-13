@@ -1,7 +1,9 @@
-import torch
+import torch, json, os
 # ------------ Model config --------------------- #
 DEVICE: str = torch.device("cpu")
-#print("Device:", DEVICE, DEVICE.type)
+
+TFF_DATA_DIR = lambda x: f'tff_dataloaders_10clients/{x}.pth'
+
 # Hugging face models:
 HF_MODELS = {
     "ViT": "google/vit-base-patch16-224",
@@ -37,7 +39,8 @@ MIN_AVAIL = 0     # Wait until all these # of clients are available
 
 FIT_CONFIG_FN = lambda srvr_rnd: {
         "server_round": srvr_rnd,
-        "local_epochs": EPOCHS
+        "local_epochs": EPOCHS,
+        "learning_rate": LEARNING_RATE,
         }
 
 # CPU and GPU resources for a single client. 
@@ -47,9 +50,9 @@ CLIENT_RESOURCES = None
 if DEVICE.type == "cuda":
     CLIENT_RESOURCES = {"num_gpus": 1}
     
-#%%
-import json, os
 curr_dir_path = os.path.dirname(os.path.realpath(__file__)) + "\\data\\ray_spill"
+if not os.path.exists(curr_dir_path):
+    os.makedirs(curr_dir_path)
 
 RAY_ARGS = dict(
     _system_config={

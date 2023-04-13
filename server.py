@@ -1,41 +1,26 @@
 #%% Import libraries
 from typing import Dict
 import flwr as fl
-import torch
-from torch.utils.data import DataLoader, ConcatDataset, ChainDataset
 
 from flower_helpers import (create_model, get_weights, test, load_data)
-from config import (NUM_ROUNDS, MODEL_NAME, NUM_CLASSES, 
-                    PRE_TRAINED, TRAIN_SIZE, VAL_PORTION, 
+from config import  (NUM_ROUNDS, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
                     EPOCHS, FRAC_FIT, FRAC_EVAL, MIN_FIT,
                     MIN_EVAL, MIN_AVAIL, FIT_CONFIG_FN,
                     NUM_CLIENTS, CLIENT_RESOURCES, DOUBLE_TRAIN,
-                    RAY_ARGS)
+                    RAY_ARGS, TFF_DATA_DIR, NUM_CLASSES, 
+                    MODEL_NAME, PRE_TRAINED)
 from client import FlowerClient
 
-
-
 #%% Load the data (non-iid dataset)
-data_path = lambda x: f'tff_dataloaders_10clients/{x}.pth'
-trainloaders = torch.load(data_path('trainloaders'))
-valloaders = torch.load(data_path('valloaders'))
-testloader = torch.load(data_path('testloader'))
-#%%
-if DOUBLE_TRAIN:
-    # combining loaders to double the size of the training set for each client
-    new_trainloaders = []
-    for i in range(0, len(trainloaders), 2):
-        combined = ConcatDataset([trainloaders[i].dataset, trainloaders[i+1].dataset])
-        new_trainloaders.append(DataLoader(combined, batch_size=BATCH_SIZE))
-    
-    trainloaders = new_trainloaders
 
 #%% Load the data (iid dataset from huggingface)
-# trainloaders, valloaders, testloader = load_data()
+trainloaders, valloaders, testloader = load_data(MODEL_NAME, TEST_SIZE, 
+                                                 TRAIN_SIZE, VAL_PORTION, 
+                                                 BATCH_SIZE, NUM_CLIENTS)
 
 #%% Create a new fresh model to initialize parameters
-net = create_model()
+net = create_model(MODEL_NAME, NUM_CLASSES, PRE_TRAINED)
 init_weights = get_weights(net)
 MODEL_CONFIG = net.config
 # Convert the weights (np.ndarray) to parameters (bytes)

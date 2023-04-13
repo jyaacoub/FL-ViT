@@ -19,6 +19,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         new_parameters, data_size, metrics = train(self.model_config, 
                                           config['local_epochs'], 
+                                          config['learning_rate'],
                                           parameters, 
                                           self.trainloader)
         return new_parameters, data_size, metrics

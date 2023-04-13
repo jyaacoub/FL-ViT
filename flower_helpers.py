@@ -2,30 +2,46 @@ from collections import OrderedDict
 import random
 from typing import Dict
 import flwr as fl
-#import tensorflow as tf
-# try:
-#     import tensorflow_federated as tff
-# except:
-#     print('tensorflow_federated not installed... Cannot load data from tff')
+try:
+    # TF is only needed if we want to load data from tff
+    # otherwise we can just use the torch dataloaders or stored tff
+    import tensorflow as tf
+    import tensorflow_federated as tff
+except:
+    pass
     
 import numpy as np
 
 from transformers import AutoModelForImageClassification, AutoProcessor
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset, Dataset
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, ConcatDataset
 
-from config import (HF_MODELS, DEVICE, MODEL_NAME, NUM_CLASSES, 
-                    PRE_TRAINED, NUM_CLIENTS, TRAIN_SIZE, 
-                    VAL_PORTION, TEST_SIZE, BATCH_SIZE, 
-                    LEARNING_RATE)
+from config import (HF_MODELS, DEVICE)
+
+def load_stored_tff(data_path, batch_size, DOUBLE_TRAIN=False):
+    trainloaders = torch.load(data_path('trainloaders'))
+    valloaders = torch.load(data_path('valloaders'))
+    testloader = torch.load(data_path('testloader'))
     
-def load_data_tff():
+    if DOUBLE_TRAIN:
+        # combining loaders to double the size of the training set for each client
+        new_trainloaders = []
+        for i in range(0, len(trainloaders), 2):
+            combined = ConcatDataset([trainloaders[i].dataset, trainloaders[i+1].dataset])
+            new_trainloaders.append(DataLoader(combined, batch_size=batch_size))
+        
+        trainloaders = new_trainloaders
+    
+    return trainloaders, valloaders, testloader
+    
+
+def load_data_tff(model_name, val_portion, batch_size, num_clients):
     """same as load_data but returns heterogenous (non-iid) dataset from tensorflow-federated"""
     cifar_train, cifar_test = tff.simulation.datasets.cifar100.load_data()
-    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    processor = AutoProcessor.from_pretrained(model_name)
     
     def convert_tf_client_to_dict(client_data):
         data_dict = {
@@ -48,7 +64,7 @@ def load_data_tff():
         return {"inputs": inputs['pixel_values'], "labels": batch["label"].squeeze()}
     
     trainloaders, valloaders = [], []
-    for n in range(NUM_CLIENTS):
+    for n in range(num_clients):
         client_train = cifar_train.create_tf_dataset_for_client(cifar_train.client_ids[n])
         
         train_dict = convert_tf_client_to_dict(client_train)
@@ -57,9 +73,9 @@ def load_data_tff():
                                     remove_columns=train_data.column_names)
         train_data.set_format('torch')
         
-        train_val_split = train_data.train_test_split(test_size=VAL_PORTION)
-        trainloaders.append(DataLoader(train_val_split["train"], batch_size=BATCH_SIZE))
-        valloaders.append(DataLoader(train_val_split["test"], batch_size=BATCH_SIZE))
+        train_val_split = train_data.train_test_split(test_size=val_portion)
+        trainloaders.append(DataLoader(train_val_split["train"], batch_size))
+        valloaders.append(DataLoader(train_val_split["test"], batch_size))
     
     client_test = cifar_test.create_tf_dataset_for_client(cifar_test.client_ids[0])
     test_data = Dataset.from_dict(convert_tf_client_to_dict(client_test))
@@ -67,21 +83,21 @@ def load_data_tff():
                                 remove_columns=test_data.column_names)
     test_data.set_format('torch')
     
-    return trainloaders, valloaders, DataLoader(test_data, batch_size=BATCH_SIZE)
+    return trainloaders, valloaders, DataLoader(test_data, batch_size)
     
-def load_data():
+def load_data(model_name, test_size, train_size, val_portion, batch_size, num_clients):
     """returns trainloaders, valloaders for each client and a single testloader"""
     raw_dataset = load_dataset('cifar10')
     raw_dataset = raw_dataset.shuffle(seed=42)
     
     # limiting data size
-    test_idxs = random.sample(range(len(raw_dataset['test'])), TEST_SIZE)
-    train_idxs = random.sample(range(len(raw_dataset['train'])), TRAIN_SIZE)
+    test_idxs = random.sample(range(len(raw_dataset['test'])), test_size)
+    train_idxs = random.sample(range(len(raw_dataset['train'])), train_size)
 
     test_data = raw_dataset['test'].select(test_idxs)
     train_data = raw_dataset['train'].select(train_idxs)
     
-    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    processor = AutoProcessor.from_pretrained(model_name)
     # Preprocess function
     def preprocess_data(data):
         inputs = processor(images=data['img'], return_tensors="pt")
@@ -100,51 +116,51 @@ def load_data():
 
     # SPLITTING:
     # Split training set into partitions to simulate the individual dataset
-    partition_size = len(train_data) // NUM_CLIENTS
-    lengths = [partition_size] * NUM_CLIENTS
+    partition_size = len(train_data) // num_clients
+    lengths = [partition_size] * num_clients
     datasets = random_split(train_data, lengths, torch.Generator().manual_seed(42))
 
     trainloaders = []
     valloaders = []
     for ds in datasets:
-      len_val = int(len(ds) * VAL_PORTION)
+      len_val = int(len(ds) * val_portion)
       len_train = len(ds) - len_val
       lengths = [len_train, len_val]
       ds_train, ds_val = random_split(ds, lengths, torch.Generator().manual_seed(42))
 
 
-      trainloaders.append(DataLoader(ds_train, batch_size=BATCH_SIZE))
-      valloaders.append(DataLoader(ds_val, batch_size=BATCH_SIZE))
+      trainloaders.append(DataLoader(ds_train, batch_size=batch_size))
+      valloaders.append(DataLoader(ds_val, batch_size=batch_size))
       
-    testloader = DataLoader(test_data, batch_size=BATCH_SIZE)
+    testloader = DataLoader(test_data, batch_size=batch_size)
     return trainloaders, valloaders, testloader
     
-def create_model() -> nn.Module:
+def create_model(model_name, num_classes, pre_trained=True) -> nn.Module:
     # Load the pre-trained model
-    model = AutoModelForImageClassification.from_pretrained(MODEL_NAME)
+    model = AutoModelForImageClassification.from_pretrained(model_name)
     # Replace the classification head
-    if MODEL_NAME == HF_MODELS['BiT']:
+    if model_name == HF_MODELS['BiT']:
         model.classifier = nn.Sequential(
                         nn.Flatten(start_dim=1, end_dim=-1),
-                        nn.Linear(in_features=2048, out_features=NUM_CLASSES, bias=True)
+                        nn.Linear(in_features=2048, out_features=num_classes, bias=True)
                     )
-    elif MODEL_NAME == HF_MODELS['ConvNeXt']: # ConvNext 
-        model.classifier = nn.Linear(768, NUM_CLASSES)
-    elif MODEL_NAME == HF_MODELS['ViT']: #Vit
+    elif model_name == HF_MODELS['ConvNeXt']: # ConvNext 
+        model.classifier = nn.Linear(768, num_classes)
+    elif model_name == HF_MODELS['ViT']: #Vit
         model.classifier = nn.Linear(
             model.config.hidden_size,
-            NUM_CLASSES)
-    elif MODEL_NAME == HF_MODELS['DeiT']: #DeiT
-        model.cls_classifier = nn.Linear(768, NUM_CLASSES)
-        model.distillation_classifier = nn.Linear(768, NUM_CLASSES)
+            num_classes)
+    elif model_name == HF_MODELS['DeiT']: #DeiT
+        model.cls_classifier = nn.Linear(768, num_classes)
+        model.distillation_classifier = nn.Linear(768, num_classes)
     else:
         raise Exception
     
     # Config is used to init the classes and we use pretrained for initial weights
-    model.config.num_labels = NUM_CLASSES
+    model.config.num_labels = num_classes
     
     # randomize weights if we dont want pretrained
-    if not PRE_TRAINED:
+    if not pre_trained:
         model = AutoModelForImageClassification.from_config(model.config)
     return model
  
@@ -155,14 +171,14 @@ def set_weights(model, weights) -> None:
     params_dict = zip(model.state_dict().keys(), weights)
     state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
     model.load_state_dict(state_dict, strict=True)
-    
-def train(model_config, epochs, params, trainloader):
+
+def train(model_config, epochs, learning_rate, params, trainloader):
     # Load model
     net = AutoModelForImageClassification.from_config(model_config).to(DEVICE)
     if params is not None:
       set_weights(net, params)
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
     criterion = torch.nn.CrossEntropyLoss()
     metrics = {'train_loss': [], 'train_accuracy': []}
     net.train() # switches network into training mode
