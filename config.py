@@ -1,9 +1,9 @@
 import torch, json, os
 # ------------ Model config --------------------- #
-NON_IID = False # True to load non-IID data from TFF, False to load IID data from torchvision
+NON_IID = True # True to load non-IID data from TFF, False to load IID data from torchvision
 DEVICE: str = torch.device("cpu")
 
-TFF_DATA_DIR = lambda x: f'tff_dataloaders_10clients/{x}.pth'
+TFF_DATA_DIR = lambda x: f'data/tff_dataloaders_10clients/{x}.pth'
 
 # Hugging face models:
 HF_MODELS = {
