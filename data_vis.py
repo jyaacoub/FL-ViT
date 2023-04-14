@@ -3,7 +3,7 @@
 import re, ast, os
 import matplotlib.pyplot as plt
 
-def get_metrics(path='colab/media/32BS_e-5LR_1000Train_100Test/ConvNeXt_CIFAR10_5Clients_10Rounds_1000Train_100Test.ipynb'):
+def get_metrics(path='media/32BS_e-5LR_1000Train_100Test/ConvNeXt_CIFAR10_5Clients_10Rounds_1000Train_100Test.ipynb'):
     """ Get metrics from a notebook file """
     with open(path, 'r') as f:
         doc = f.read()
