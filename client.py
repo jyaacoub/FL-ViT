@@ -28,6 +28,7 @@ class FlowerClient(fl.client.NumPyClient):
                                           config['learning_rate'],
                                           parameters, 
                                           self.trainloader)
+        print('fit metrics:', metrics)
         return new_parameters, data_size, metrics
 
     def evaluate(self, parameters, config):
