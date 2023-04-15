@@ -17,7 +17,7 @@ HF_MODELS = {
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['ConvNeXt']
+MODEL_NAME =  HF_MODELS['ViT']
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #
