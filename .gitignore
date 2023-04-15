@@ -2,5 +2,5 @@ __pycache__/
 *.pyc
 dataset/*
 FLvit/
+data/ray_spill/*
 data/*
-media/ray_spill/*
