@@ -185,13 +185,13 @@ def train(model_config, epochs, learning_rate, params, trainloader):
     criterion = torch.nn.CrossEntropyLoss()
     metrics = {'train_loss': [], 'train_accuracy': []}
     net.train() # switches network into training mode
-    print('starting training...')
     for i in range(epochs):
         total, correct = 0, 0
         total_loss = 0
         for data in trainloader:
             x, y = data['inputs'], data['labels']
             x, y = x.to(DEVICE), y.to(DEVICE)
+            print('forward')
           
             #forward
             outputs = net(x)
