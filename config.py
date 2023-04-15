@@ -37,9 +37,9 @@ DOUBLE_TRAIN = True # Double the training size for each client in each round (fo
 
 FRAC_FIT = 0.5    # Sample X% of available clients for training
 FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation
-MIN_FIT = 0       # Never sample less than this for training
-MIN_EVAL = 0      # Never sample less than this for evaluation
-MIN_AVAIL = 0     # Wait until all these # of clients are available
+MIN_FIT = 1       # Never sample less than this for training
+MIN_EVAL = 1      # Never sample less than this for evaluation
+MIN_AVAIL = 1     # Wait until all these # of clients are available
 
 FIT_CONFIG_FN = lambda srvr_rnd: {
         "server_round": srvr_rnd,
