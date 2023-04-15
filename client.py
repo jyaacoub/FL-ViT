@@ -82,7 +82,7 @@ if __name__ == '__main__':
         client_no = int(input('Enter client number 0-10 (0-5 if double train size): '))
     
     print(f'Starting Flower client#{client_no}...')
-    fl.client.start_numpy_client(SERVER_ADDRESS + ":8080", 
+    fl.client.start_numpy_client(SERVER_ADDRESS, 
                                  client=FlowerClient(
                                      MODEL_CONFIG, 
                                      trainloaders[client_no], 

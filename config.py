@@ -30,7 +30,7 @@ LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
-SERVER_ADDRESS = "JCY-PC" # LAN setup for actual FL env
+SERVER_ADDRESS = "JCY-PC:8080" # LAN setup for actual FL env
 NUM_CLIENTS = 5
 NUM_ROUNDS = 50
 DOUBLE_TRAIN = True # Double the training size for each client in each round (for non-IID only)
