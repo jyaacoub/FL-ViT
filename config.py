@@ -30,9 +30,10 @@ LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
+SERVER_ADDRESS = "JCY-PC" # LAN setup for actual FL env
 NUM_CLIENTS = 5
 NUM_ROUNDS = 50
-DOUBLE_TRAIN = False # Double the training size for each client in each round (for non-IID only)
+DOUBLE_TRAIN = True # Double the training size for each client in each round (for non-IID only)
 
 FRAC_FIT = 0.5    # Sample X% of available clients for training
 FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation
