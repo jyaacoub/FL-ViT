@@ -58,13 +58,13 @@ def weighted_average_eval(metrics):
     return aggregated_metrics
 
 def weighted_average_fit(metrics):
-    # print(metrics)
+    print(metrics)
     weighted_train_loss = 0
     weighted_train_accuracy = 0
     for c in metrics: # c is a tuple (num_examples, metrics) for each client
         # metrics for each epoch is included, we only need the last one
-        weighted_train_loss += c[0] * c[1]['train_loss'][-1]
-        weighted_train_accuracy += c[0] * c[1]['train_accuracy'][-1]
+        weighted_train_loss += c[0] * c[1]['train_loss']
+        weighted_train_accuracy += c[0] * c[1]['train_accuracy']
     
     aggregated_metrics = {'train_loss': weighted_train_loss / sum([c[0] for c in metrics]),
             'train_accuracy': weighted_train_accuracy / sum([c[0] for c in metrics])}

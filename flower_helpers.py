@@ -210,7 +210,7 @@ def train(model_config, epochs, learning_rate, params, trainloader):
         metrics['train_accuracy'] = correct/total
         metrics['train_loss'] = loss.item()
     
-    return get_weights(net), len(trainloader), metrics
+    return get_weights(net), len(trainloader.dataset), metrics
 
 def test(model_config, params, dataloader):
     # Load model
@@ -235,4 +235,4 @@ def test(model_config, params, dataloader):
         correct += (predictions==y).sum().item()
 
     metrics = {'loss': loss.item(), 'accuracy': correct/total}
-    return len(dataloader), metrics
+    return len(dataloader.dataset), metrics
