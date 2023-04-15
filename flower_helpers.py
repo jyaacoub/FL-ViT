@@ -191,7 +191,6 @@ def train(model_config, epochs, learning_rate, params, trainloader):
         for data in trainloader:
             x, y = data['inputs'], data['labels']
             x, y = x.to(DEVICE), y.to(DEVICE)
-            print('forward')
           
             #forward
             outputs = net(x)
