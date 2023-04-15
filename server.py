@@ -58,7 +58,7 @@ def weighted_average_eval(metrics):
     return aggregated_metrics
 
 def weighted_average_fit(metrics):
-    print(metrics)
+    # print(metrics)
     weighted_train_loss = 0
     weighted_train_accuracy = 0
     for c in metrics: # c is a tuple (num_examples, metrics) for each client
