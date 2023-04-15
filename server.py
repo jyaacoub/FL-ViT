@@ -107,3 +107,4 @@ fl.server.start_server(server_address=SERVER_ADDRESS,
                        config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS), 
                        strategy=strategy)
 
+#%%
