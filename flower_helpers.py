@@ -205,9 +205,10 @@ def train(model_config, epochs, learning_rate, params, trainloader):
                 total_loss += loss
                 total += y.size(0)
                 correct += (torch.argmax(outputs.logits, dim=-1)==y).sum().item()
-                
-        metrics['train_accuracy'].append(correct/total)
-        metrics['train_loss'].append(loss.item())
+        
+        # TODO: temporary fix of type error bug
+        metrics['train_accuracy'] = correct/total
+        metrics['train_loss'] = loss.item()
     
     return get_weights(net), len(trainloader), metrics
 
