@@ -13,12 +13,13 @@ HF_MODELS = {
     "ViT": "google/vit-base-patch16-224",
     "DeiT": "facebook/deit-base-distilled-patch16-224",
     "DeiT-T": "facebook/deit-tiny-distilled-patch16-224",
+    "DeiT-S": "facebook/deit-small-distilled-patch16-224",
     "BiT": "google/bit-50",
     "ConvNeXt": "facebook/convnext-tiny-224"
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['DeiT-T']
+MODEL_NAME =  HF_MODELS['DeiT-S']
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #
