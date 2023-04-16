@@ -1,7 +1,7 @@
 import torch, json, os
 # ------------ Model config --------------------- #
 NUM_CLASSES = 100 #10 or 100 for CIFAR10 or CIFAR100 respectively
-NON_IID = False # True to load non-IID data from TFF, False to load IID data from torchvision
+NON_IID = True # True to load non-IID data from TFF, False to load IID data from torchvision
 assert not(NUM_CLASSES != 10 and NON_IID), "Non-IID is only supported for CIFAR100"
 
 DEVICE: str = torch.device("cpu")
@@ -12,12 +12,13 @@ TFF_DATA_DIR = lambda x: f'data/tff_dataloaders_10clients/{x}.pth'
 HF_MODELS = {
     "ViT": "google/vit-base-patch16-224",
     "DeiT": "facebook/deit-base-distilled-patch16-224",
+    "DeiT-T": "facebook/deit-tiny-distilled-patch16-224",
     "BiT": "google/bit-50",
     "ConvNeXt": "facebook/convnext-tiny-224"
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['ViT']
+MODEL_NAME =  HF_MODELS['DeiT-T']
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #

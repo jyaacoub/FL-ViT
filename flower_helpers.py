@@ -156,6 +156,9 @@ def create_model(model_name, num_classes, pre_trained=True) -> nn.Module:
     elif model_name == HF_MODELS['DeiT']: #DeiT
         model.cls_classifier = nn.Linear(768, num_classes)
         model.distillation_classifier = nn.Linear(768, num_classes)
+    elif model_name == HF_MODELS['DeiT-T']: #ResNet
+        model.cls_classifier = nn.Linear(192, num_classes)
+        model.distillation_classifier = nn.Linear(192, num_classes)
     else:
         raise Exception
     
