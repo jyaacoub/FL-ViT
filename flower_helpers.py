@@ -156,6 +156,12 @@ def create_model(model_name, num_classes, pre_trained=True) -> nn.Module:
     elif model_name == HF_MODELS['DeiT']: #DeiT
         model.cls_classifier = nn.Linear(768, num_classes)
         model.distillation_classifier = nn.Linear(768, num_classes)
+    elif model_name == HF_MODELS['DeiT-S']:
+        model.cls_classifier = nn.Linear(384, num_classes)
+        model.distillation_classifier = nn.Linear(384, num_classes)         
+    elif model_name == HF_MODELS['DeiT-T']:
+        model.cls_classifier = nn.Linear(192, num_classes)
+        model.distillation_classifier = nn.Linear(192, num_classes)
     else:
         raise Exception
     
@@ -205,11 +211,12 @@ def train(model_config, epochs, learning_rate, params, trainloader):
                 total_loss += loss
                 total += y.size(0)
                 correct += (torch.argmax(outputs.logits, dim=-1)==y).sum().item()
-                
-        metrics['train_accuracy'].append(correct/total)
-        metrics['train_loss'].append(loss.item())
+        
+        # TODO: temporary fix of type error bug
+        metrics['train_accuracy'] = correct/total
+        metrics['train_loss'] = loss.item()
     
-    return get_weights(net), len(trainloader), metrics
+    return get_weights(net), len(trainloader.dataset), metrics
 
 def test(model_config, params, dataloader):
     # Load model
@@ -234,4 +241,4 @@ def test(model_config, params, dataloader):
         correct += (predictions==y).sum().item()
 
     metrics = {'loss': loss.item(), 'accuracy': correct/total}
-    return len(dataloader), metrics
+    return len(dataloader.dataset), metrics

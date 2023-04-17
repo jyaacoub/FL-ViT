@@ -4,7 +4,7 @@ import flwr as fl
 
 from flower_helpers import (create_model, get_weights, test, 
                             load_data, load_stored_tff)
-from config import  (NUM_ROUNDS, SERVER_ADDRESS, TRAIN_SIZE, VAL_PORTION, 
+from config import  (NUM_ROUNDS, TRAIN_SIZE, VAL_PORTION, 
                     TEST_SIZE, BATCH_SIZE, LEARNING_RATE, 
                     EPOCHS, FRAC_FIT, FRAC_EVAL, MIN_FIT,
                     MIN_EVAL, MIN_AVAIL, FIT_CONFIG_FN,
@@ -103,8 +103,13 @@ print('batch size:', BATCH_SIZE)
 print('epochs:', EPOCHS)
 
 #%% Start simulation
-fl.server.start_server(server_address=SERVER_ADDRESS, 
-                       config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS), 
-                       strategy=strategy)
-
-#%% 
+fl.simulation.start_simulation(
+    client_fn=lambda cid: FlowerClient(MODEL_CONFIG, trainloaders[int(cid)], valloaders[int(cid)]),
+    num_clients=NUM_CLIENTS,
+    config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
+    strategy=strategy,
+    client_resources=CLIENT_RESOURCES,
+    ray_init_args=RAY_ARGS,
+)
+# %%
+ 

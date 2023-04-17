@@ -3,7 +3,7 @@
 import re, ast, os
 import matplotlib.pyplot as plt
 
-def get_metrics(path='colab/media/32BS_e-5LR_1000Train_100Test/ConvNeXt_CIFAR10_5Clients_10Rounds_1000Train_100Test.ipynb'):
+def get_metrics(path='media/32BS_e-5LR_1000Train_100Test/ConvNeXt_CIFAR10_5Clients_10Rounds_1000Train_100Test.ipynb'):
     """ Get metrics from a notebook file """
     with open(path, 'r') as f:
         doc = f.read()
@@ -44,7 +44,7 @@ def plot_metrics(metrics, key='accuracy', color=(0, 0, 0), model_name=None):
              label=model_name+' (train)', color=color, alpha=0.3)
 
 def plot_all_models(metrics_path, dataset='CIFAR-100',key='accuracy', 
-                    colors=[(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)]): # for 4 models
+                    colors=[(0, 0, 0), (1,0,0), (0, 1, 0), (0, 0, 1)]): # for 4 models
     i=0
     for file in os.listdir(metrics_path):
         if not file.endswith('.ipynb'):
@@ -56,13 +56,15 @@ def plot_all_models(metrics_path, dataset='CIFAR-100',key='accuracy',
         i+=1
         
     # plotting the points
-    lr = re.findall(r"e-([0-9]*)LR", metrics_path)[0]
+    # lr = re.findall(r"e-([0-9]*)LR", metrics_path)[0]
     plt.xlabel('Round')
     plt.ylabel(KEY.capitalize())
-    plt.title(f'{dataset} {KEY.capitalize()} with Federated Learning (1e-{lr}LR)')
+    # plt.title(f'{dataset} {KEY.capitalize()} with Federated Learning (1e-{lr}LR)')
+    plt.title(f'{dataset} {KEY.capitalize()} with Federated Learning')
     # x = [i for i in range(1, 11)]
     # plt.xticks(x)
-    plt.legend()
+    # ledgend at top left
+    plt.legend(loc='lower left')
     
     def no_overlap(y, prev_y, thresh=.05):
         if round(y,1) in prev_y:
@@ -75,28 +77,29 @@ def plot_all_models(metrics_path, dataset='CIFAR-100',key='accuracy',
         return y, prev_y
 
     # plot time elapsed:
-    prev_y = {}
-    i=0
-    for file in os.listdir(metrics_path):
-        if not file.endswith('.ipynb'):
-            continue
-        path = os.path.join(metrics_path, file)
-        metrics = get_metrics(path)
-        y_pos = metrics['test_'+key][-1][1]
-        # making sure the text is not overlapping
-        y_pos, prev_y = no_overlap(y_pos, prev_y)
-        # if file[0] =='D': # hardcoded to ensure that the text is not overlapping (DeiT model)
-        #     y_pos += .02
+    # prev_y = {}
+    # i=0
+    # for file in os.listdir(metrics_path):
+    #     if not file.endswith('.ipynb'):
+    #         continue
+    #     path = os.path.join(metrics_path, file)
+    #     metrics = get_metrics(path)
+    #     y_pos = metrics['test_'+key][-1][1]
+    #     # making sure the text is not overlapping
+    #     y_pos, prev_y = no_overlap(y_pos, prev_y)
+    #     # if file[0] =='D': # hardcoded to ensure that the text is not overlapping (DeiT model)
+    #     #     y_pos += .02
         
-        num_rounds = len(metrics['test_'+key])
-        x_pos = num_rounds + num_rounds/20
-        plt.text(x_pos, y_pos, str(int(metrics['time_elapsed']))+' mins', color=colors[i])
-        i+=1
+    #     num_rounds = len(metrics['test_'+key])
+    #     x_pos = num_rounds + num_rounds/20
+    #     plt.text(x_pos, y_pos, str(int(metrics['time_elapsed']))+' mins', color=colors[i])
+    #     i+=1
 
 # %%
-"media\hetero\1e-4LR"
 METRICS_PATH = lambda x: f'media/hetero/1e-{x}LR/'
-KEY = 'loss'
+# METRICS_PATH = lambda x: f'media/hetero_real/'
+# METRICS_PATH = lambda x: f'media/non-hetero/cifar100/'
+KEY = 'accuracy'
 
 # plt.figure(figsize=(10, 5))
 # plot_all_models(METRICS_PATH(5), key=KEY)
@@ -104,6 +107,6 @@ KEY = 'loss'
 
 plt.figure(figsize=(10, 5))
 plot_all_models(METRICS_PATH(4), dataset='CIFAR-100', key=KEY)
-plt.savefig(METRICS_PATH(4)+KEY+'_all_models.png')
+plt.savefig(METRICS_PATH(4)+KEY+'_all_models_notime.png')
 plt.show()
 # %%

@@ -1,8 +1,8 @@
 import torch, json, os
 # ------------ Model config --------------------- #
-NUM_CLASSES = 100 #10 or 100 for CIFAR10 or CIFAR100 respectively
+NUM_CLASSES = 10 #10 or 100 for CIFAR10 or CIFAR100 respectively
 NON_IID = False # True to load non-IID data from TFF, False to load IID data from torchvision
-assert not(NUM_CLASSES != 10 and NON_IID), "Non-IID is only supported for CIFAR100"
+assert not(NUM_CLASSES == 10 and NON_IID), "Non-IID is only supported for CIFAR100"
 
 DEVICE: str = torch.device("cpu")
 
@@ -12,12 +12,14 @@ TFF_DATA_DIR = lambda x: f'data/tff_dataloaders_10clients/{x}.pth'
 HF_MODELS = {
     "ViT": "google/vit-base-patch16-224",
     "DeiT": "facebook/deit-base-distilled-patch16-224",
+    "DeiT-T": "facebook/deit-tiny-distilled-patch16-224",
+    "DeiT-S": "facebook/deit-small-distilled-patch16-224",
     "BiT": "google/bit-50",
     "ConvNeXt": "facebook/convnext-tiny-224"
     }
 
 # Chosen model:
-MODEL_NAME =  HF_MODELS['ConvNeXt']
+MODEL_NAME =  HF_MODELS['DeiT-S']
 PRE_TRAINED = True
 
 # ------------ Training config ------------------ #
@@ -30,15 +32,16 @@ LEARNING_RATE = 0.0001 # 0.00001 for all others except ConVNeXt (0.0001)
 EPOCHS = 1 # EPOCHS PER CLIENT in each round
 
 # ------------ FL config ------------------------ #
+SERVER_ADDRESS = "JCY-PC:8080" # LAN setup for actual FL env
 NUM_CLIENTS = 5
-NUM_ROUNDS = 50
-DOUBLE_TRAIN = False # Double the training size for each client in each round (for non-IID only)
+NUM_ROUNDS = 10
+DOUBLE_TRAIN = True # Double the training size for each client in each round (for non-IID only)
 
-FRAC_FIT = 0.5    # Sample X% of available clients for training
-FRAC_EVAL = 0.5   # Sample X% of available clients for evaluation
-MIN_FIT = 0       # Never sample less than this for training
-MIN_EVAL = 0      # Never sample less than this for evaluation
-MIN_AVAIL = 0     # Wait until all these # of clients are available
+FRAC_FIT = 1    # Sample X% of available clients for training
+FRAC_EVAL = 1   # Sample X% of available clients for evaluation
+MIN_FIT = 2       # Never sample less than this for training
+MIN_EVAL = 2      # Never sample less than this for evaluation
+MIN_AVAIL = 2     # Wait until all these # of clients are available
 
 FIT_CONFIG_FN = lambda srvr_rnd: {
         "server_round": srvr_rnd,
