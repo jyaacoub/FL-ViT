@@ -63,7 +63,8 @@ def plot_all_models(metrics_path, dataset='CIFAR-100',key='accuracy',
     plt.title(f'{dataset} {KEY.capitalize()} with Federated Learning')
     # x = [i for i in range(1, 11)]
     # plt.xticks(x)
-    plt.legend()
+    # ledgend at top left
+    plt.legend(loc='lower left')
     
     def no_overlap(y, prev_y, thresh=.05):
         if round(y,1) in prev_y:
@@ -76,27 +77,28 @@ def plot_all_models(metrics_path, dataset='CIFAR-100',key='accuracy',
         return y, prev_y
 
     # plot time elapsed:
-    prev_y = {}
-    i=0
-    for file in os.listdir(metrics_path):
-        if not file.endswith('.ipynb'):
-            continue
-        path = os.path.join(metrics_path, file)
-        metrics = get_metrics(path)
-        y_pos = metrics['test_'+key][-1][1]
-        # making sure the text is not overlapping
-        y_pos, prev_y = no_overlap(y_pos, prev_y)
-        # if file[0] =='D': # hardcoded to ensure that the text is not overlapping (DeiT model)
-        #     y_pos += .02
+    # prev_y = {}
+    # i=0
+    # for file in os.listdir(metrics_path):
+    #     if not file.endswith('.ipynb'):
+    #         continue
+    #     path = os.path.join(metrics_path, file)
+    #     metrics = get_metrics(path)
+    #     y_pos = metrics['test_'+key][-1][1]
+    #     # making sure the text is not overlapping
+    #     y_pos, prev_y = no_overlap(y_pos, prev_y)
+    #     # if file[0] =='D': # hardcoded to ensure that the text is not overlapping (DeiT model)
+    #     #     y_pos += .02
         
-        num_rounds = len(metrics['test_'+key])
-        x_pos = num_rounds + num_rounds/20
-        plt.text(x_pos, y_pos, str(int(metrics['time_elapsed']))+' mins', color=colors[i])
-        i+=1
+    #     num_rounds = len(metrics['test_'+key])
+    #     x_pos = num_rounds + num_rounds/20
+    #     plt.text(x_pos, y_pos, str(int(metrics['time_elapsed']))+' mins', color=colors[i])
+    #     i+=1
 
 # %%
 METRICS_PATH = lambda x: f'media/hetero/1e-{x}LR/'
-METRICS_PATH = lambda x: f'media/hetero_real/'
+# METRICS_PATH = lambda x: f'media/hetero_real/'
+# METRICS_PATH = lambda x: f'media/non-hetero/cifar100/'
 KEY = 'accuracy'
 
 # plt.figure(figsize=(10, 5))
@@ -105,6 +107,6 @@ KEY = 'accuracy'
 
 plt.figure(figsize=(10, 5))
 plot_all_models(METRICS_PATH(4), dataset='CIFAR-100', key=KEY)
-plt.savefig(METRICS_PATH(4)+KEY+'_all_models.png')
+plt.savefig(METRICS_PATH(4)+KEY+'_all_models_notime.png')
 plt.show()
 # %%
