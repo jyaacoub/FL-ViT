@@ -1,7 +1,7 @@
 import torch, json, os
 # ------------ Model config --------------------- #
-NUM_CLASSES = 100 #10 or 100 for CIFAR10 or CIFAR100 respectively
-NON_IID = True # True to load non-IID data from TFF, False to load IID data from torchvision
+NUM_CLASSES = 10 #10 or 100 for CIFAR10 or CIFAR100 respectively
+NON_IID = False # True to load non-IID data from TFF, False to load IID data from torchvision
 assert not(NUM_CLASSES == 10 and NON_IID), "Non-IID is only supported for CIFAR100"
 
 DEVICE: str = torch.device("cpu")
@@ -34,7 +34,7 @@ EPOCHS = 1 # EPOCHS PER CLIENT in each round
 # ------------ FL config ------------------------ #
 SERVER_ADDRESS = "JCY-PC:8080" # LAN setup for actual FL env
 NUM_CLIENTS = 5
-NUM_ROUNDS = 50
+NUM_ROUNDS = 10
 DOUBLE_TRAIN = True # Double the training size for each client in each round (for non-IID only)
 
 FRAC_FIT = 1    # Sample X% of available clients for training
